@@ -1,0 +1,232 @@
+<div class="inicio-container">
+  <!-- Header con Logo -->
+  <header class="header">
+    <div class="header-content">
+      <div class="logo-section">
+        <h1 class="logo">💰 DealGrabber</h1>
+        <p class="tagline">Encuentra los mejores precios de ordenadores</p>
+      </div>
+    </div>
+  </header>
+
+  <!-- Sección de Búsqueda Principal -->
+  <section class="busqueda-principal">
+    <div class="busqueda-container">
+      <div class="input-group">
+        <input 
+          type="text" 
+          [value]="busquedaTerm()"
+          (input)="busquedaTerm.set($event.target.value)"
+          (keyup.enter)="buscar()"
+          placeholder="Busca ordenadores, procesadores, marcas..."
+          class="input-busqueda"
+        />
+        <button (click)="buscar()" class="btn-buscar">
+          🔍 Buscar
+        </button>
+        <button *ngIf="busquedaTerm()" (click)="limpiarBusqueda()" class="btn-limpiar">
+          ✕
+        </button>
+      </div>
+
+      <!-- Botones de Filtrado -->
+      <div class="filtrado-buttons">
+        <button (click)="toggleFiltros()" class="btn-filtro">
+          ⚙️ {{ mostrarFiltros() ? 'Ocultar Filtros' : 'Mostrar Filtros' }}
+        </button>
+        <select (change)="cambiarOrdenamiento($event)" class="select-ordenamiento">
+          <option value="precio-asc" [selected]="ordenamiento() === 'precio-asc'">💲 Menor Precio</option>
+          <option value="precio-desc" [selected]="ordenamiento() === 'precio-desc'">💲 Mayor Precio</option>
+          <option value="puntuacion" [selected]="ordenamiento() === 'puntuacion'">⭐ Mejor Puntuados</option>
+          <option value="descuento" [selected]="ordenamiento() === 'descuento'">🎉 Mayor Descuento</option>
+        </select>
+      </div>
+      <div class="busqueda-compacta">
+        <button type="button" class="btn-filtro btn-filtro--mobile" (click)="toggleFiltros()">
+          ⚙️ Ver filtros
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Panel de Filtros -->
+  <div class="main-layout">
+    <section class="filtros-panel" [class.oculto]="!mostrarFiltros()">
+      <div class="filtros-header">
+        <h3>Filtros Avanzados</h3>
+        <button type="button" class="btn-cerrar-panel" (click)="toggleFiltros()">✕</button>
+      </div>
+
+      <form [formGroup]="filtrosForm" class="filtros-form">
+        <div class="filtro-grupo">
+          <label>Procesador</label>
+          <select formControlName="procesador" class="filtro-select">
+            <option value="">Todos</option>
+            <option *ngFor="let proc of procesadoresDisponibles" [value]="proc">
+              {{ proc }}
+            </option>
+          </select>
+        </div>
+
+        <div class="filtro-grupo">
+          <label>RAM (GB)</label>
+          <select formControlName="ram" class="filtro-select">
+            <option value="">Todos</option>
+            <option *ngFor="let ram of ramDisponible" [value]="ram">
+              {{ ram }} GB
+            </option>
+          </select>
+        </div>
+
+        <div class="filtro-grupo">
+          <label>Almacenamiento (GB)</label>
+          <select formControlName="almacenamiento" class="filtro-select">
+            <option value="">Todos</option>
+            <option *ngFor="let alm of almacenamientoDisponible" [value]="alm">
+              {{ alm }} GB
+            </option>
+          </select>
+        </div>
+
+        <div class="filtro-grupo">
+          <label>Precio Mínimo (€)</label>
+          <input type="number" formControlName="precioMin" class="filtro-input" placeholder="0" />
+        </div>
+
+        <div class="filtro-grupo">
+          <label>Precio Máximo (€)</label>
+          <input type="number" formControlName="precioMax" class="filtro-input" placeholder="5000" />
+        </div>
+
+        <div class="filtro-grupo">
+          <label>Sitio</label>
+          <select formControlName="sitio" class="filtro-select">
+            <option value="">Todos</option>
+            <option *ngFor="let sitio of sitiosDisponibles" [value]="sitio">
+              {{ sitio }}
+            </option>
+          </select>
+        </div>
+
+        <div class="filtro-grupo">
+          <label>Disponibilidad</label>
+          <select formControlName="disponibilidad" class="filtro-select">
+            <option value="">Todas</option>
+            <option value="En stock">En stock</option>
+            <option value="Pocas unidades">Pocas unidades</option>
+            <option value="Agotado">Agotado</option>
+          </select>
+        </div>
+      </form>
+
+      <div class="botones-filtro botones-filtro--sticky">
+        <button type="button" (click)="aplicarFiltros()" class="btn-aplicar">
+          ✓ Aplicar Filtros
+        </button>
+        <button type="button" (click)="limpiarFiltros()" class="btn-limpiar-filtros">
+          🔄 Limpiar Todo
+        </button>
+      </div>
+    </section>
+
+    <!-- Indicador de Carga -->
+    <div *ngIf="cargando()" class="cargando">
+    <div class="spinner"></div>
+    <p>Buscando mejores precios...</p>
+  </div>
+
+  <!-- Grid de Productos -->
+  <section class="productos-section">
+    <div class="productos-info">
+      <h2>Resultados: {{ productosFiltrados().length }} ordenadores encontrados</h2>
+    </div>
+
+    <div *ngIf="productosFiltrados().length === 0 && !cargando()" class="sin-resultados">
+      <p>😔 No se encontraron ordenadores con tus criterios de búsqueda</p>
+      <button (click)="limpiarFiltros()" class="btn-reintentar">
+        Intentar nuevamente
+      </button>
+    </div>
+
+    <div class="productos-grid">
+      <div *ngFor="let producto of productosFiltrados()" class="producto-card">
+        <!-- Imagen -->
+        <div class="imagen-container">
+          <img [src]="producto.imagen" [alt]="producto.nombre" class="producto-imagen" />
+          <div class="badge-sitio">{{ producto.sitio }}</div>
+          
+          <!-- Badge de Descuento -->
+          <div *ngIf="producto.descuento" class="badge-descuento">
+            -{{ producto.descuento }}%
+          </div>
+
+          <!-- Badge de Disponibilidad -->
+          <div [class]="'badge-disponibilidad ' + obtenerEtiquetaDisponibilidad(producto.disponibilidad)">
+            {{ producto.disponibilidad }}
+          </div>
+        </div>
+
+        <!-- Información del Producto -->
+        <div class="producto-info">
+          <h3 class="producto-nombre">{{ producto.nombre }}</h3>
+          
+          <!-- Especificaciones -->
+          <div class="especificaciones">
+            <div class="spec-item">
+              <span class="spec-label">Procesador:</span>
+              <span class="spec-value">{{ producto.procesador }}</span>
+            </div>
+            <div class="spec-item">
+              <span class="spec-label">RAM:</span>
+              <span class="spec-value">{{ producto.ram }}</span>
+            </div>
+            <div class="spec-item">
+              <span class="spec-label">Almacenamiento:</span>
+              <span class="spec-value">{{ producto.almacenamiento }}</span>
+            </div>
+            <div class="spec-item" *ngIf="producto.gpu">
+              <span class="spec-label">GPU:</span>
+              <span class="spec-value">{{ producto.gpu }}</span>
+            </div>
+            <div class="spec-item">
+              <span class="spec-label">Pantalla:</span>
+              <span class="spec-value">{{ producto.pantalla }}</span>
+            </div>
+          </div>
+
+          <!-- Puntuación -->
+          <div *ngIf="producto.puntuacion" class="puntuacion">
+            <span class="estrellas">
+              {{ '⭐'.repeat(Math.floor(producto.puntuacion)) }}
+              <span *ngIf="producto.puntuacion % 1 !== 0">½</span>
+            </span>
+            <span class="valor-puntuacion">{{ producto.puntuacion }}/5</span>
+            <span *ngIf="producto.resenias" class="resenias">({{ producto.resenias }} reseñas)</span>
+          </div>
+
+          <!-- Precios -->
+          <div class="precios">
+            <div class="precio-actual">{{ producto.precio | currency:'EUR':'symbol':'1.0-0' }}</div>
+            <div *ngIf="producto.precioOriginal" class="precio-original">
+              {{ producto.precioOriginal | currency:'EUR':'symbol':'1.0-0' }}
+            </div>
+          </div>
+
+          <!-- Botones de Acción -->
+          <div class="botones-accion">
+            <button (click)="abrirProducto(producto)" class="btn-ver-oferta">
+              👉 Ver Oferta
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <p>💡 DealGrabber - Comparador de Precios de Ordenadores</p>
+    <p>Compara precios entre los mejores sitios y ahorra dinero en tu próximo ordenador</p>
+  </footer>
+</div>
