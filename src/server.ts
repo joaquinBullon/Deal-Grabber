@@ -6,11 +6,33 @@ import {
 } from '@angular/ssr/node';
 import express from 'express';
 import { join } from 'node:path';
+import { existsSync } from 'node:fs';
 
 const browserDistFolder = join(import.meta.dirname, '../browser');
+const isBrowserBuildExists = existsSync(browserDistFolder);
 
 const app = express();
-const angularApp = new AngularNodeAppEngine();
+
+let angularApp: AngularNodeAppEngine | null = null;
+
+/**
+ * Initialize Angular App Engine (solo si existe la build)
+ */
+async function initializeAngularApp() {
+  if (!isBrowserBuildExists) {
+    return null;
+  }
+  
+  if (!angularApp) {
+    try {
+      angularApp = new AngularNodeAppEngine();
+    } catch (error) {
+      console.warn('SSR initialization warning:', error);
+      return null;
+    }
+  }
+  return angularApp;
+}
 
 /**
  * Example Express Rest API endpoints can be defined here.
@@ -27,24 +49,39 @@ const angularApp = new AngularNodeAppEngine();
 /**
  * Serve static files from /browser
  */
-app.use(
-  express.static(browserDistFolder, {
-    maxAge: '1y',
-    index: false,
-    redirect: false,
-  }),
-);
+if (isBrowserBuildExists) {
+  app.use(
+    express.static(browserDistFolder, {
+      maxAge: '1y',
+      index: false,
+      redirect: false,
+    }),
+  );
+}
 
 /**
  * Handle all other requests by rendering the Angular application.
  */
-app.use((req, res, next) => {
-  angularApp
-    .handle(req)
-    .then((response) =>
-      response ? writeResponseToNodeResponse(response, res) : next(),
-    )
-    .catch(next);
+app.use(async (req, res, next) => {
+  const ssr = await initializeAngularApp();
+  
+  if (ssr && isBrowserBuildExists) {
+    try {
+      const response = await ssr.handle(req);
+      if (response) {
+        writeResponseToNodeResponse(response, res);
+        return;
+      }
+    } catch (error) {
+      console.error('Error handling request:', error);
+    }
+  }
+
+  if (isBrowserBuildExists) {
+    return res.sendFile(join(browserDistFolder, 'index.html'));
+  }
+
+  next();
 });
 
 /**
